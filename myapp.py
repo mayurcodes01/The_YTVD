@@ -3,71 +3,37 @@ import yt_dlp
 import tempfile
 import os
 
-# -------------------- Page config --------------------
-st.set_page_config(page_title="YouTube Downloader", page_icon="📥", layout="wide")
-st.markdown("""
-    <style>
-        .main {
-            background-color: #f5f5f5;
-        }
-        .stButton>button {
-            background-color: #4CAF50;
-            color: white;
-            height: 3em;
-            width: 100%;
-            border-radius: 10px;
-            border: none;
-        }
-        .stTextInput>div>div>input {
-            height: 3em;
-            border-radius: 10px;
-            border: 1px solid #ccc;
-            padding-left: 10px;
-        }
-        .stSelectbox>div>div>div>select {
-            height: 3em;
-            border-radius: 10px;
-            padding-left: 10px;
-        }
-        .stProgress>div>div>div>div {
-            background-color: #4CAF50;
-        }
-    </style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="YouTube Downloader", layout="centered")
+st.title("YouTube Downloader (Safe 1080p+)")
 
-# -------------------- Header --------------------
-st.markdown("<h1 style='text-align:center; color:#4CAF50;'>YouTube Video Downloader</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#555;'>Download YouTube videos in your preferred quality (1080p+ supported)</p>", unsafe_allow_html=True)
-
-# -------------------- URL input --------------------
-with st.container():
-    st.markdown("### Enter YouTube URL")
-    url = st.text_input("", placeholder="https://www.youtube.com/watch?v=example")
+url = st.text_input("Enter YouTube URL:")
 
 formats = []
-selected_quality = None
+selected_format_id = None
 
-# -------------------- Fetch qualities --------------------
 if url:
     try:
         with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
             info = ydl.extract_info(url, download=False)
+            # Get all formats that are video or video+audio
             formats = [f for f in info['formats'] if f.get('height')]
-            qualities = []
+            format_options = []
             for f in formats:
                 audio_flag = "with audio" if f.get('acodec') != "none" else "video-only"
-                qualities.append(f"{f['height']}p ({audio_flag})")
-            selected_quality = st.selectbox("Select Quality", qualities)
+                label = f"{f.get('height')}p ({audio_flag}) - {f.get('format_id')}"
+                format_options.append(label)
+            selected_label = st.selectbox("Select Quality", format_options)
+            if selected_label:
+                # Extract format_id from label
+                selected_format_id = selected_label.split("-")[-1].strip()
     except Exception as e:
-        st.error(f"Failed to fetch qualities: {e}")
+        st.error(f"Failed to fetch formats: {e}")
 
-# -------------------- Download video --------------------
-if st.button("Download Video") and url and selected_quality:
-    height = int(selected_quality.split("p")[0])
-
+if st.button("Download Video") and url and selected_format_id:
+    temp_path = tempfile.gettempdir()
     ydl_opts = {
-        'format': f'bestvideo[height={height}]+bestaudio/best[height={height}]',
-        'outtmpl': os.path.join(tempfile.gettempdir(), '%(title)s.%(ext)s'),
+        'format': selected_format_id,
+        'outtmpl': os.path.join(temp_path, '%(title)s.%(ext)s'),
         'merge_output_format': 'mp4',
         'progress_hooks': []
     }
@@ -101,7 +67,3 @@ if st.button("Download Video") and url and selected_quality:
         )
     except Exception as e:
         st.error(f"Download failed: {e}")
-
-# -------------------- Footer --------------------
-st.markdown("<hr>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#888;'>Made with ❤️ using Streamlit and yt-dlp</p>", unsafe_allow_html=True)
